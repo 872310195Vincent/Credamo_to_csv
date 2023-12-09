@@ -1,6 +1,5 @@
-# conda install -n py36 python=3.6 openpyxl pandas selenium requests pyinstaller
-# pyinstaller -F credamo_download_gui20230224.py --hidden-import "openpyxl.cell._writer"
-
+# conda create -n py36 python=3.6 openpyxl pandas selenium requests pyinstaller
+# pyinstaller -F credamo_download_and_reject.py --hidden-import "openpyxl.cell._writer"
 import time
 import openpyxl
 import pandas as pd
@@ -105,13 +104,14 @@ def go_to_page(browser,page):
 def set_encoding(browser):
     time.sleep(1)
     browser.find_element_by_link_text("数据清理").click()
-    time.sleep(1)
-    browser.find_element_by_xpath("/html/body/div[@id='survey_bg']/div[4]/div[1]/div[@class='route']/div[@class='button2']").click()
-    time.sleep(1)
-    browser.find_element_by_xpath("/html/body/div[@id='survey_bg']/div[4]/div[@class='resultView']/div[@class='search-box']/div[@class='popover'][4]").click()
-    time.sleep(1)
-    browser.find_element_by_xpath("/html/body/div[@id='survey_bg']/div[4]/div[1]/div[@class='route']/div[@class='button1']").click()
-    time.sleep(1)
+    time.sleep(2)
+    # delete some click that cause bugs 20231210
+    # browser.find_element_by_xpath("/html/body/div[@id='survey_bg']/div[4]/div[1]/div[@class='route']/div[@class='button2']").click()
+    # time.sleep(1)
+    # browser.find_element_by_xpath("/html/body/div[@id='survey_bg']/div[4]/div[@class='resultView']/div[@class='search-box']/div[@class='popover'][4]").click()
+    # time.sleep(1)
+    # browser.find_element_by_xpath("/html/body/div[@id='survey_bg']/div[4]/div[1]/div[@class='route']/div[@class='button1']").click()
+    # time.sleep(1)
 
 def get_page_df(browser,surveyId,page_size,page_num,download=False):
     try:
@@ -198,7 +198,7 @@ def get_userId_loc(excel_name,page_df,page_num,autobatchReject):
     # chosen_ids = file['用户ID'].tolist()
     
     chosen_ids = excel_name.get("1.0","end").strip().split('\n')
-    print(chosen_ids)
+    # print(chosen_ids)
     
     page_userIds = page_df['userId'].tolist()
     page_chosen_ids = list(set(chosen_ids) & set(page_userIds))
@@ -206,8 +206,11 @@ def get_userId_loc(excel_name,page_df,page_num,autobatchReject):
     for chosen_id in page_chosen_ids:
         chosen_row = page_userIds.index(chosen_id)+1
         chosen_rows.append(chosen_row)
-        browser.find_element_by_xpath("/html/body/div[1]/div[4]/div[2]/div[3]/div/div[3]/div/div[2]/table/tbody/tr[%d]" % chosen_row)\
-            .find_element_by_class_name('vxe-cell--checkbox').click()
+        # print('chosen_row:', chosen_row)
+        # change to relative xpath 20231210
+        browser.find_element_by_xpath("//table/tbody/tr[%d]//span[@class='vxe-cell--checkbox']" % chosen_row).click()
+        # browser.find_element_by_xpath("/html/body/div[1]/div[4]/div[2]/div[2]/div/div[3]/div/div[2]/table/tbody/tr[%d]" % chosen_row)\
+        #     .find_element_by_class_name('vxe-cell--checkbox').click()
     # 批量拒绝
     browser.find_element_by_class_name("el-dropdown").click()
     time.sleep(1)
