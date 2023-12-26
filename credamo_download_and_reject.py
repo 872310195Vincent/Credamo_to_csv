@@ -6,6 +6,9 @@ import pandas as pd
 import tkinter as tk
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import requests
 import json
 
@@ -146,7 +149,7 @@ def get_page_df(browser,surveyId,page_size,page_num,download=False):
                 df.columns = [ques_headers_kv[id] if id not in ['status', 'answerId', 'userId'] else id for id in df.columns]
                 return df,total_cnt
             else:
-                return df,total_cnt,ques_headers_kv
+                return df,total_cnt,ques_headers_kv,ques_headers
         else:
             # print("无法登录到问卷页面")
             show_execute_info("无法登录到问卷页面")
@@ -159,10 +162,10 @@ def get_page_df(browser,surveyId,page_size,page_num,download=False):
 def download_data(browser,download_name):
     surveyId = get_surveyId(browser)
     set_encoding(browser)
-    page_size = set_page_size(browser,page_size=100)
+    page_size = set_page_size(browser,page_size=10)
     page_num = 1
     page_num = go_to_page(browser,page_num)
-    page_df,total_cnt,ques_headers_kv = get_page_df(browser,surveyId,page_size,page_num,download=True)
+    page_df,total_cnt,ques_headers_kv,ques_headers = get_page_df(browser,surveyId,page_size,page_num,download=True)
     total_page_num = total_cnt//page_size+1
     page_dfs = pd.DataFrame([])
     for page_num in range(total_page_num):
@@ -170,47 +173,42 @@ def download_data(browser,download_name):
         # print(page_num)
         # go_to_page(browser,page_num)
         # time.sleep(5)
-        page_df,total_cnt,ques_headers_kv = get_page_df(browser,surveyId,page_size,page_num,download=True)
+        page_df,total_cnt,ques_headers_kv,_ = get_page_df(browser,surveyId,page_size,page_num,download=True)
         page_df.set_index('userId')
         if str(page_dfs.shape)=="(0, 0)":
             page_dfs = page_df
         else:
             page_dfs = pd.concat([page_dfs,page_df],ignore_index=True)
-    page_dfs.columns = [ques_headers_kv[id] if id not in ['status', 'answerId', 'userId'] else id for id in page_df.columns]
+    page_dfs.columns = [
+        ques_headers_kv[id] 
+        if id not in ['status', 'answerId', 'userId'] 
+        else id 
+        for id in page_df.columns
+    ]
+    page_dfs = page_dfs[['status', 'answerId', 'userId'] + [ques_headers_kv[ques_header['id']] for ques_header in ques_headers]]
     page_dfs = page_dfs[(page_dfs=="*").sum(axis=1)==0] #剔除拒绝的
     download_name_str = download_name.get('0.0','end').strip()+"_"+time.strftime('%Y%m%d_%H%M')+".xlsx"
     page_dfs.to_excel(download_name_str)
     show_execute_info("{}下载完成".format(download_name_str))
 
-def get_userId_loc(excel_name,page_df,page_num,autobatchReject):
-    # excel_name_str = excel_name.get("1.0","end").strip()
-    # file = pd.read_excel(excel_name_str)
-    
-    # print(excel_name_str)
-    
-    # try:
-        # file = pd.read_excel(excel_name_str)
-        # print(file)
-    # except:
-    #     # print('没有excel文件,请检查exe所在文件夹下是否有"待拒绝被试.xlsx"文件。\n\n')
-    #     show_execute_info('没有excel文件,请检查exe所在文件夹下是否有"{}"文件。\n\n'.format(excel_name_str))
-    #     return []
-    # chosen_ids = file['用户ID'].tolist()
-    
+def get_userId_loc(excel_name,page_df,page_num,autobatchReject):    
     chosen_ids = excel_name.get("1.0","end").strip().split('\n')
-    # print(chosen_ids)
+    print('指定拒绝的被试:',chosen_ids)
     
     page_userIds = page_df['userId'].tolist()
+    print(page_df.shape,page_df.columns)
+    print('page_userIds',page_userIds)
     page_chosen_ids = list(set(chosen_ids) & set(page_userIds))
+    print('page_chosen_ids')
     chosen_rows = []
     for chosen_id in page_chosen_ids:
+        print('page_userIds',page_userIds)
         chosen_row = page_userIds.index(chosen_id)+1
         chosen_rows.append(chosen_row)
-        # print('chosen_row:', chosen_row)
-        # change to relative xpath 20231210
-        browser.find_element_by_xpath("//table/tbody/tr[%d]//span[@class='vxe-cell--checkbox']" % chosen_row).click()
-        # browser.find_element_by_xpath("/html/body/div[1]/div[4]/div[2]/div[2]/div/div[3]/div/div[2]/table/tbody/tr[%d]" % chosen_row)\
-        #     .find_element_by_class_name('vxe-cell--checkbox').click()
+        print('chosen_row:', chosen_row)
+        # change to relative xpath 20231227
+        xpath_expression = f"//table[@style='margin-top: 0px; width: 415px;']/tbody/tr[{chosen_row}]/td[1]/div/span"
+        browser.find_element_by_xpath(xpath_expression).click()
     # 批量拒绝
     browser.find_element_by_class_name("el-dropdown").click()
     time.sleep(1)
@@ -228,7 +226,7 @@ def get_userId_loc(excel_name,page_df,page_num,autobatchReject):
 
 def batchReject(browser,excel_name,page_num_assign_text,autoReject=True):
     surveyId = get_surveyId(browser)
-    page_size = set_page_size(browser,page_size=100)
+    page_size = set_page_size(browser,page_size=10)
     page_num = 1
     page_num = go_to_page(browser,page_num)
     page_df,total_cnt = get_page_df(browser,surveyId,page_size,page_num)
