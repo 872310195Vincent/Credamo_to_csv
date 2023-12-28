@@ -174,16 +174,17 @@ def download_data(browser,download_name):
         # go_to_page(browser,page_num)
         # time.sleep(5)
         page_df,total_cnt,ques_headers_kv,_ = get_page_df(browser,surveyId,page_size,page_num,download=True)
-        page_df.set_index('userId')
-        if str(page_dfs.shape)=="(0, 0)":
-            page_dfs = page_df
-        else:
-            page_dfs = pd.concat([page_dfs,page_df],ignore_index=True)
+        if 'userId' in page_df.columns:
+            page_df.set_index('userId')
+            if str(page_dfs.shape)=="(0, 0)":
+                page_dfs = page_df
+            else:
+                page_dfs = pd.concat([page_dfs,page_df],ignore_index=True)
     page_dfs.columns = [
         ques_headers_kv[id] 
         if id not in ['status', 'answerId', 'userId'] 
         else id 
-        for id in page_df.columns
+        for id in page_dfs.columns
     ]
     page_dfs = page_dfs[['status', 'answerId', 'userId'] + [ques_headers_kv[ques_header['id']] for ques_header in ques_headers]]
     page_dfs = page_dfs[(page_dfs=="*").sum(axis=1)==0] #剔除拒绝的
