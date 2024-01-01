@@ -9,6 +9,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 import requests
 import json
 
@@ -211,16 +212,24 @@ def get_userId_loc(excel_name,page_df,page_num,autobatchReject):
         xpath_expression = f"//table[@style='margin-top: 0px; width: 415px;']/tbody/tr[{chosen_row}]/td[1]/div/span"
         browser.find_element_by_xpath(xpath_expression).click()
     # 批量拒绝
-    browser.find_element_by_class_name("el-dropdown").click()
+    browser.find_element_by_class_name("el-dropdown").click() # 点击批量操作
     time.sleep(1)
     if autobatchReject == True:
-        browser.find_elements_by_class_name("el-dropdown-menu__item")[1].click()
-        time.sleep(1)
-        msgbox = browser.find_element_by_class_name("el-message-box")
-        msgbox.click()
-        # print("请根据网页提示进行操作")
+        browser.find_elements_by_class_name("el-dropdown-menu__item")[1].click() # 点击拒绝选中数据
         time.sleep(3)
-        msgbox.find_element_by_class_name("el-button").click()
+        try:
+            WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='el-select' and @style='width: 380px;']"))).click()  # 点击请选择
+        except TimeoutException:
+            ok_button_locator = (By.XPATH, "//button[@class='el-button el-button--default el-button--small el-button--primary ']/span[contains(text(), '确定')]")
+            WebDriverWait(browser, 10).until(EC.element_to_be_clickable(ok_button_locator)).click()
+            # show_execute_info("第%d页无拒绝被试" % page_num)
+            print("第%d页无拒绝被试" % page_num)
+            time.sleep(3)
+            return []
+        reject_reason_li_locator = (By.XPATH, "//li[contains(@class, 'el-select-dropdown__item') and span[text()='填写内容不符合要求，请认真阅读并仔细填答']]")
+        WebDriverWait(browser, 10).until(EC.element_to_be_clickable(reject_reason_li_locator)).click()
+        reject_button_locator = (By.XPATH, "//div[@class='el-dialog__footer']//button[@class='el-button el-button--primary' and span[text()='批量拒绝']]")
+        WebDriverWait(browser, 10).until(EC.element_to_be_clickable(reject_button_locator)).click()
         show_execute_info("第%d页已拒绝%d个被试" % (page_num,len(chosen_rows)))
         time.sleep(3)
     return chosen_rows 
