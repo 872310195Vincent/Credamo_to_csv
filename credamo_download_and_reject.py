@@ -1,5 +1,6 @@
 # conda create -n py36 python=3.6 openpyxl pandas selenium requests pyinstaller
 # pyinstaller -F credamo_download_and_reject.py --hidden-import "openpyxl.cell._writer"
+
 import time
 import openpyxl
 import pandas as pd
@@ -19,7 +20,7 @@ def open_credamo(browser):
     login = False
     for i in range(5):
         try:
-            # show_execute_info("请登录Credamo账号。")
+            show_execute_info("请登录Credamo账号。")
             browser.find_element_by_class_name("login").click()
             time.sleep(1)
             for cookie in browser.get_cookies():
@@ -33,9 +34,12 @@ def open_credamo(browser):
             # print("已登陆。")
     if login==True:
         show_execute_info("已登陆，请在浏览器中手动打开您需要拒绝被试的项目。")
+        print("已登陆，请在浏览器中手动打开您需要拒绝被试的项目。")
     else:
         show_execute_info("请登录账号，然后打开一个项目。")
+        print("已登陆，请在浏览器中手动打开您需要拒绝被试的项目。")
     show_execute_info("准备好excel后点击自动拒绝被试")
+    print("已登陆，请在浏览器中手动打开您需要拒绝被试的项目。")
     
 def get_surveyId(browser):
     url = browser.current_url
@@ -45,7 +49,7 @@ def get_surveyId(browser):
         endloc = url.index("#")
         surveyId = url[url.index("surveyId")+len("surveyId="):url.index("#")]
     except:
-        # print("还没有打开项目,读取不到surveyId,请打开一个项目")
+        print("还没有打开项目,读取不到surveyId,请打开一个项目")
         show_execute_info("还没有打开项目,读取不到surveyId,请打开一个项目")
         return 0
     
@@ -53,7 +57,7 @@ def get_surveyId(browser):
     try:
         browser.find_element_by_class_name("iconfont icon-shaixuan")
         # 如果找到，表明已经打开数据清理页面
-        # print("已打开数据清理页面")
+        print("已打开数据清理页面")
         show_execute_info("已打开数据清理页面")
     except:    
     # 如果报错，没有打开数据清理页面，自动点击“数据清理”
@@ -70,7 +74,7 @@ def set_page_size(browser,page_size):
     try:
         size_choise = page_sizes.index(page_size)
     except:
-        # print("没有该条数/页的选项，请检查")
+        print("没有该条数/页的选项，请检查")
         show_execute_info("没有该条数/页的选项，请检查")
         return -2
     # 设置100页
@@ -86,24 +90,21 @@ def set_page_size(browser,page_size):
             set_size = True
             return page_size
         except:
-            # print("设置条数/页失败，正在重试")
+            print("设置条数/页失败，正在重试")
             show_execute_info("设置条数/页失败，正在重试")
             retry_time += 1
-    # print("设置页码失败，请检查网页。")
+    print("设置页码失败，请检查网页。")
     show_execute_info("设置页码失败，请检查网页。")
 
 def go_to_page(browser,page):
-    try:
-        loc = browser.find_element_by_class_name('el-pagination__jump').find_element_by_class_name('el-input__inner')
-        loc.send_keys(Keys.CONTROL+'a')     #全选
-        loc.send_keys(Keys.DELETE)		# 删除，清空
-        loc.send_keys(page)	# 写入新的值
-        loc.send_keys(Keys.ENTER)
-        return page
-    except:
-        # print("无法跳转页面")
-        show_execute_info("无法跳转页面")
-        return 0
+    loc = WebDriverWait(browser.find_element_by_class_name('el-pagination__jump'), 10).until(
+        EC.element_to_be_clickable((By.CLASS_NAME, 'el-input__inner'))
+    )
+    loc.send_keys(Keys.CONTROL+'a')     #全选
+    loc.send_keys(Keys.DELETE)		# 删除，清空
+    loc.send_keys(page)	# 写入新的值
+    loc.send_keys(Keys.ENTER)
+    return page
 
 def set_encoding(browser):
     time.sleep(1)
@@ -131,7 +132,7 @@ def get_page_df(browser,surveyId,page_size,page_num,download=False):
                     "cookie":cookie_str}
         url = "https://www.credamo.com/v1/cleanVar/qstOverviewBySurId/%d?currPageSize=%d&currPageIndex=%d"  % (surveyId,page_size,page_num)
     except:
-        # print("获取cookie失败，请重试。")
+        print("获取cookie失败，请重试。")
         show_execute_info("获取cookie失败，请重试。")
         return []
     try:
@@ -152,11 +153,11 @@ def get_page_df(browser,surveyId,page_size,page_num,download=False):
             else:
                 return df,total_cnt,ques_headers_kv,ques_headers
         else:
-            # print("无法登录到问卷页面")
+            print("无法登录到问卷页面")
             show_execute_info("无法登录到问卷页面")
             return pd.DataFrame([]),0
     except:
-        # print("无法get问卷页面")
+        print("无法get问卷页面")
         show_execute_info("无法get问卷页面")
         return pd.DataFrame([]),0
 
@@ -171,7 +172,7 @@ def download_data(browser,download_name):
     page_dfs = pd.DataFrame([])
     for page_num in range(total_page_num):
         page_num += 1
-        # print(page_num)
+        print(page_num)
         # go_to_page(browser,page_num)
         # time.sleep(5)
         page_df,total_cnt,ques_headers_kv,_ = get_page_df(browser,surveyId,page_size,page_num,download=True)
@@ -193,45 +194,43 @@ def download_data(browser,download_name):
     page_dfs.to_excel(download_name_str)
     show_execute_info("{}下载完成".format(download_name_str))
 
-def get_userId_loc(excel_name,page_df,page_num,autobatchReject):    
+def get_userId_loc(excel_name,page_df,page_num,autobatchReject):
     chosen_ids = excel_name.get("1.0","end").strip().split('\n')
-    print('指定拒绝的被试:',chosen_ids)
-    
-    page_userIds = page_df['userId'].tolist()
-    print(page_df.shape,page_df.columns)
-    print('page_userIds',page_userIds)
+    if 'userId' in page_df.columns:
+        page_userIds = page_df['userId'].tolist()
+    else:
+        show_execute_info("第%d页无被试" % page_num)
+        return []
     page_chosen_ids = list(set(chosen_ids) & set(page_userIds))
-    print('page_chosen_ids')
     chosen_rows = []
     for chosen_id in page_chosen_ids:
-        print('page_userIds',page_userIds)
         chosen_row = page_userIds.index(chosen_id)+1
         chosen_rows.append(chosen_row)
-        print('chosen_row:', chosen_row)
-        # change to relative xpath 20231227
         xpath_expression = f"//table[@style='margin-top: 0px; width: 415px;']/tbody/tr[{chosen_row}]/td[1]/div/span"
         browser.find_element_by_xpath(xpath_expression).click()
-    # 批量拒绝
-    browser.find_element_by_class_name("el-dropdown").click() # 点击批量操作
+        # 批量拒绝
+    browser.find_element_by_class_name("el-dropdown").click()
     time.sleep(1)
     if autobatchReject == True:
-        browser.find_elements_by_class_name("el-dropdown-menu__item")[1].click() # 点击拒绝选中数据
-        time.sleep(3)
-        try:
-            WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='el-select' and @style='width: 380px;']"))).click()  # 点击请选择
-        except TimeoutException:
-            ok_button_locator = (By.XPATH, "//button[@class='el-button el-button--default el-button--small el-button--primary ']/span[contains(text(), '确定')]")
-            WebDriverWait(browser, 10).until(EC.element_to_be_clickable(ok_button_locator)).click()
-            # show_execute_info("第%d页无拒绝被试" % page_num)
-            print("第%d页无拒绝被试" % page_num)
+            browser.find_elements_by_class_name("el-dropdown-menu__item")[1].click() # 点击拒绝选中数据
             time.sleep(3)
-            return []
-        reject_reason_li_locator = (By.XPATH, "//li[contains(@class, 'el-select-dropdown__item') and span[text()='填写内容不符合要求，请认真阅读并仔细填答']]")
-        WebDriverWait(browser, 10).until(EC.element_to_be_clickable(reject_reason_li_locator)).click()
-        reject_button_locator = (By.XPATH, "//div[@class='el-dialog__footer']//button[@class='el-button el-button--primary' and span[text()='批量拒绝']]")
-        WebDriverWait(browser, 10).until(EC.element_to_be_clickable(reject_button_locator)).click()
-        show_execute_info("第%d页已拒绝%d个被试" % (page_num,len(chosen_rows)))
-        time.sleep(3)
+            try:
+                WebDriverWait(browser, 10).until(EC.element_to_be_clickable((By.XPATH, "//div[@class='el-select' and @style='width: 380px;']"))).click()  # 点击请选择
+            except TimeoutException:
+                ok_button_locator = (By.XPATH, "//button[@class='el-button el-button--default el-button--small el-button--primary ']/span[contains(text(), '确定')]")
+                WebDriverWait(browser, 10).until(EC.element_to_be_clickable(ok_button_locator)).click()
+                show_execute_info("第%d页无拒绝被试" % page_num)
+                print("第%d页无拒绝被试" % page_num)
+                time.sleep(3)
+                return []
+            reject_reason_li_locator = (By.XPATH, "//li[contains(@class, 'el-select-dropdown__item') and span[text()='填写内容不符合要求，请认真阅读并仔细填答']]")
+            WebDriverWait(browser, 10).until(EC.element_to_be_clickable(reject_reason_li_locator)).click()
+            # 等待第一个按钮的操作完成，例如等待下拉框消失
+            # WebDriverWait(browser, 10).until_not(EC.presence_of_element_located((By.XPATH, reject_reason_li_locator)))
+            reject_button_locator = (By.XPATH, "//div[@class='el-dialog__footer']//button[@class='el-button el-button--primary' and span[text()='批量拒绝']]")
+            WebDriverWait(browser, 10).until(EC.element_to_be_clickable(reject_button_locator)).click()
+            print("第%d页已拒绝%d个被试" % (page_num,len(chosen_rows)))
+            time.sleep(3)
     return chosen_rows 
 
 def batchReject(browser,excel_name,page_num_assign_text,autoReject=True):
@@ -252,14 +251,17 @@ def batchReject(browser,excel_name,page_num_assign_text,autoReject=True):
             userId_loc = get_userId_loc(excel_name,page_df,page_num,autoReject)
             # print(userId_loc)
         show_execute_info('所有页面已拒绝。\n你可以打开另一个项目，清空原用户ID后粘贴新项目待拒绝用户ID，重新点击拒绝被试。\n或者关闭浏览器，关闭本程序')
+        # batchAccept(browser,excel_name,page_num_assign_text,autoReject=True)
     else:
         #手动拒绝
         try:
             page_num_assign = int(page_num_assign_text.get('0.0','end').strip())
         except:
+            print("无法读取页面数，请在上方小方框中输入正确的页面数字")
             show_execute_info("无法读取页面数，请在上方小方框中输入正确的页面数字")
             return 0
         if page_num_assign <= 0 or page_num_assign > total_cnt//page_size+1:
+            print("输入的页面数字超过答卷范围，请检查页面数")
             show_execute_info("输入的页面数字超过答卷范围，请检查页面数")
         go_to_page(browser,page_num_assign)
         time.sleep(5)
@@ -267,7 +269,81 @@ def batchReject(browser,excel_name,page_num_assign_text,autoReject=True):
         # print(total_cnt)
         userId_loc = get_userId_loc(excel_name,page_df,page_num_assign,autoReject)
         # print(userId_loc)
+        print('页面%d已选中待拒绝被试，可以手动在浏览器中点击拒绝。\n' % page_num_assign)
         show_execute_info('页面%d已选中待拒绝被试，可以手动在浏览器中点击拒绝。\n'%page_num_assign)
+
+def get_accept_userId_loc(excel_name,page_df,page_num,autobatchReject):
+    page_userIds = page_df['userId'].tolist()
+    reject_ids = excel_name.get("1.0","end").strip().split('\n')
+    page_unselected_ids = page_df[page_df['status']==1]['userId'].tolist() # list(set(chosen_ids) & set(page_userIds))
+    page_chosen_ids = list(set(page_unselected_ids) - set(reject_ids))
+    chosen_rows = []
+    for chosen_id in page_chosen_ids:
+        chosen_row = page_userIds.index(chosen_id)+1
+        chosen_rows.append(chosen_row)
+        xpath_expression = f"//table[@style='margin-top: 0px; width: 415px;']/tbody/tr[{chosen_row}]/td[1]/div/span"
+        browser.find_element_by_xpath(xpath_expression).click()
+
+    browser.find_element_by_class_name("el-dropdown").click()
+    time.sleep(1)
+    if autobatchReject == True:
+        browser.find_elements_by_class_name("el-dropdown-menu__item")[0].click() # 点击采纳选中数据
+        time.sleep(1)
+        confirm_result_button_xpath = f"//span[contains(text(), '确定')]"#
+        confirm_result_buttons = browser.find_elements_by_xpath(confirm_result_button_xpath)
+        # 遍历所有匹配的元素
+        for button in confirm_result_buttons:
+            # 判断元素是否可点击
+            if button.is_enabled() and button.is_displayed():
+                # 执行点击操作
+                button.click()
+                # 只点击第一个可点击的元素，如果需要点击所有可点击的元素，可以去掉break语句
+                # print("第%d页已接受%d个被试" % (page_num,len(chosen_rows)))
+                show_execute_info("第%d页已接受%d个被试" % (page_num,len(chosen_rows)))
+                break
+    else:
+        # show_execute_info('页面%d已选中待接受被试，可以手动在浏览器中点击接受。\n'%page_num)
+        show_execute_info("页面%d已选中%d个待接受被试，可以手动在浏览器中点击接受。\n" % (page_num,len(chosen_rows)))
+    return 
+
+def batchAccept(browser,excel_name,page_num_assign_text,autoReject=True):
+    surveyId = get_surveyId(browser)
+    page_size = set_page_size(browser,page_size=10)
+    page_num = 1
+    page_num = go_to_page(browser,page_num)
+    page_df,total_cnt = get_page_df(browser,surveyId,page_size,page_num)
+    total_page_num = total_cnt//page_size+1
+    if autoReject:
+        for page_num in range(total_page_num):
+            page_num += 1
+            # print(page_num)
+            go_to_page(browser,page_num)
+            time.sleep(5)
+            page_df,total_cnt = get_page_df(browser,surveyId,page_size,page_num)
+            # print(total_cnt)
+            get_accept_userId_loc(excel_name,page_df,page_num,autoReject)
+            # print(userId_loc)
+        show_execute_info('所有页面已接受。\n你可以打开另一个项目，清空原用户ID后粘贴新项目待拒绝用户ID，重新点击拒绝被试。\n或者关闭浏览器，关闭本程序')
+        # show_execute_info('所有页面已拒绝。\n你可以打开另一个项目，清空原用户ID后粘贴新项目待拒绝用户ID，重新点击拒绝被试。\n或者关闭浏览器，关闭本程序')
+    else:
+        #手动拒绝
+        try:
+            page_num_assign = int(page_num_assign_text.get('0.0','end').strip())
+        except:
+            show_execute_info("无法读取页面数，请在上方小方框中输入正确的页面数字")
+            # show_execute_info("无法读取页面数，请在上方小方框中输入正确的页面数字")
+            return 0
+        if page_num_assign <= 0 or page_num_assign > total_cnt//page_size+1:
+            show_execute_info("输入的页面数字超过答卷范围，请检查页面数")
+            # show_execute_info("输入的页面数字超过答卷范围，请检查页面数")
+        go_to_page(browser,page_num_assign)
+        time.sleep(5)
+        page_df,total_cnt = get_page_df(browser,surveyId,page_size,page_num_assign)
+        # print(total_cnt)
+        get_accept_userId_loc(excel_name,page_df,page_num_assign,autoReject)
+        # print(userId_loc)
+        show_execute_info('页面%d已选中待接受被试，可以手动在浏览器中点击接受。\n' % page_num_assign)
+        # show_execute_info('页面%d已选中待拒绝被试，可以手动在浏览器中点击拒绝。\n'%page_num_assign)
 
 def show_execute_info(var,cmd=False):
     if cmd:
@@ -322,6 +398,14 @@ blank1 = tk.Label(reject_Frame, text="  ",
                                   width=3)
 blank1.pack(side="left")
 
+reject_button = tk.Button(reject_Frame, text='自动接受剩下的被试', width=15, height=1,
+                        command=lambda:batchAccept(browser,excel_name,page_num_assign_text,True))
+reject_button.pack(side="left")
+
+blank1 = tk.Label(reject_Frame, text="  ",
+                                  width=3)
+blank1.pack(side="left")
+
 choose_button = tk.Button(reject_Frame, text='手动拒绝被试', width=10, height=1,
                             command=lambda:batchReject(browser,excel_name,page_num_assign_text,False))
 choose_button.pack(side="left")
@@ -349,6 +433,9 @@ first_info = '一共三个步骤，登录Credamo后打开一个项目，粘贴�
 show_execute_info(first_info)
 execute_info.pack()
 
+# Specify the path to chromedriver executable
+# chrome_path = r'C:\Program Files\Google\Chrome\Application\chromedriver.exe'
+# browser = webdriver.Chrome(executable_path=chrome_path)
 browser = webdriver.Chrome()
 
 window.mainloop()
